@@ -8,10 +8,25 @@ def show():
     if "df_fmr" not in st.session_state or "df_nat" not in st.session_state or "df_merged" not in st.session_state:
         st.warning("⚠️ Les données n'ont pas été chargées ou fusionnées. Veuillez le faire dans la page d'accueil.")
         return
-
+    
+    if "active_analysis" not in st.session_state:
+            st.session_state.active_analysis = None
+            
+    if "fmp_selection_active" not in st.session_state:
+            st.session_state.fmp_selection_active = None
+    
+    if "selected_fmp_label" not in st.session_state:
+            st.session_state.selected_fmp_label = None
+            
+    if "df_merged_filtered" not in st.session_state:
+            st.session_state.df_merged_filtered = None
+    
+    if "df_fmr_filtered" not in st.session_state:
+            st.session_state.df_fmr_filtered = None
+   
+            
     # ✅ Récupération des DataFrames
     df_fmr = st.session_state["df_fmr"]
-    df_nat = st.session_state["df_nat"]
     df_merged = st.session_state["df_merged"]
 
     st.success("✅ Données chargées avec succès.")
@@ -23,21 +38,21 @@ def show():
     if selected_fmp_col_01:
         fmp_list = df_fmr[selected_fmp_col_01].dropna().unique().tolist()
         selected_fmp_value_01 = st.selectbox("📍 Sélectionnez un FMP :", sorted(fmp_list), key="selected_fmp_value_01")
-
-        # Bouton de confirmation de sélection
-        if st.button("🔎 Sélectionner le point de suivi des flux"):
-            st.session_state["fmp_selection_active"] = True
-            st.session_state["df_fmr_filtered"] = df_fmr[df_fmr[selected_fmp_col_01] == selected_fmp_value_01]
-            st.session_state["df_merged_filtered"] = df_merged[df_merged[selected_fmp_col_01] == selected_fmp_value_01]
-            st.session_state["selected_fmp_label"] = selected_fmp_value_01
+        
+    # Bouton de confirmation de sélection
+    if st.button("🔎 Sélectionner le point de suivi des flux"):
+        st.session_state["fmp_selection_active"] = True
+        st.session_state["df_fmr_filtered"] = df_fmr[df_fmr[selected_fmp_col_01] == selected_fmp_value_01]
+        st.session_state["df_merged_filtered"] = df_merged[df_merged[selected_fmp_col_01] == selected_fmp_value_01]
+        st.session_state["selected_fmp_label"] = selected_fmp_value_01
 
     # ✅ Si FMP sélectionné : affichage suite
-    if st.session_state.get("fmp_selection_active", False):
+    if st.session_state.get("fmp_selection_active", True):
         df_fmr_filtered = st.session_state["df_fmr_filtered"]
         df_merged_filtered = st.session_state["df_merged_filtered"]
         selected_fmp_value_01 = st.session_state["selected_fmp_label"]
 
-        if df_fmr_filtered.empty or df_merged_filtered.empty:
+        if df_fmr_filtered is None or df_merged_filtered is None:
             st.warning("⚠️ Aucun résultat pour cette sélection.")
             return
 
@@ -49,18 +64,17 @@ def show():
             "fmp selectionne": "📦 Informations FMP",
             "nationalites par fmp": "🌐 Nationalités",
             "profil par fmp": "🧭 Profil voyageur",
+            "transport par fmp": "✅ Moyen de transport",
             "depart par fmp": "🏁 Pays de départ",
             "destination par fmp": "🏁 Pays de destination"
         }
 
-        if "active_analysis" not in st.session_state:
-            st.session_state.active_analysis = None
 
         for key, label in buttons.items():
             if st.button(label, key=f"btn_{key}"):
                 st.session_state.active_analysis = key
 
-        # 📊 Analyse spécifique : personnes par FMP
+        # 📊 PERSONNE PAR FMP 
         if st.session_state.active_analysis == "personnes par fmp":
             st.markdown(f"### 👥 Analyse du nombre de personnes déplacées : **{selected_fmp_value_01}**")
 
@@ -85,7 +99,8 @@ def show():
 
                     except Exception as e:
                         st.error(f"Erreur lors de l'analyse : {e}")
-                        
+         
+        # == FMP  ==               
         elif st.session_state.active_analysis == "fmp selectionne":
             st.markdown(f"### 📦 Informations FMP : {selected_fmp_value_01}")
             colnames = df_fmr_filtered.columns.tolist()
@@ -107,6 +122,7 @@ def show():
                     except Exception as e:
                         st.error(f"Erreur : {e}")
         
+        # == NATIONALITE ==
         elif st.session_state.active_analysis == "nationalites par fmp":
            st.markdown(f"### 🌐 Nationalités pour FMP : {selected_fmp_value_01}")
            colnames = df_merged_filtered.columns.tolist()
@@ -135,6 +151,7 @@ def show():
                    except Exception as e:
                        st.error(f"Erreur : {e}")
 
+        # == PROFIL ==
         elif st.session_state.active_analysis == "profil par fmp":
            st.markdown(f"### 🧭 Profil des voyageurs pour FMP : {selected_fmp_value_01}")
            colnames = df_fmr_filtered.columns.tolist()
@@ -186,9 +203,26 @@ def show():
                    except Exception as e:
                        st.error(f"❌ Erreur lors du traitement : {e}")
         
+    # == TRANSPORTS ==
+        elif st.session_state.active_analysis == "transport par fmp":
+            st.markdown(f"### ✅ Moyen de transport pour FMP : {selected_fmp_value_01}")
+            colnames = df_fmr_filtered.columns.tolist()
+            transport_col_01 = st.selectbox("🌍 Colonne : moyen de transport", colnames, key="selected_transport_01")
+            counting_col_01 = st.selectbox("🔢 Colonne : date de l'enquête", colnames, key="selected_date_enq_count_01")
+            if st.button("Lancer l'analyse"):    
+                if transport_col_01 and counting_col_01:
+                    try:
+                        grouped = df_fmr_filtered.groupby(transport_col_01)[counting_col_01].count()
+                        pourcentages = round((grouped / grouped.sum()) * 100, 2)
+                        st.markdown(f"#### 📊 Les differents moyens de transports pour : {selected_fmp_value_01}")
+                        st.dataframe(pourcentages.sort_values(ascending=False).head(10))
+
+                    except Exception as e:
+                        st.error(f"Erreur : {e}")
+        
+        # == DEPART ==
         elif st.session_state.active_analysis == "depart par fmp":
             st.markdown(f"### 🏁 Pays de départ pour FMP : {selected_fmp_value_01}")
-            st.markdown("### 🏁 Pays de départ")
             colnames = df_fmr_filtered.columns.tolist()
             depart_col = st.selectbox("🌍 Colonne : pays de départ", colnames, key="depart_col_01")
             depart_count_col = st.selectbox("🔢 Colonne : nombre de personnes", colnames, key="depart_count_col_01")
@@ -203,6 +237,7 @@ def show():
                     except Exception as e:
                         st.error(f"❌ Erreur lors de l'analyse : {e}")
         
+        # == DESTINATION ==
         elif st.session_state.active_analysis == "destination par fmp":
            st.markdown(f"### 🏁 Analyse par pays de destination pour FMP : {selected_fmp_value_01}")
            colnames = df_fmr_filtered.columns.tolist()

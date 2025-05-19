@@ -8,7 +8,10 @@ def show():
     if "df_fmr" not in st.session_state or "df_nat" not in st.session_state or "df_merged" not in st.session_state:
         st.warning("⚠️ Les données n'ont pas été chargées ou fusionnées. Veuillez le faire dans la page d'accueil.")
         return
-
+    
+    if "active_analysis" not in st.session_state:
+                st.session_state.active_analysis = None
+    
     # ✅ Récupération des DataFrames depuis la session
     df_fmr = st.session_state["df_fmr"]
     df_nat = st.session_state["df_nat"]
@@ -22,12 +25,10 @@ def show():
         "fmp": "📦 Informations FMP",
         "nationalites": "🌐 Nationalités",
         "profil": "🧭 Profil voyageur",
+        "transport": "✅ Moyen de transport",
         "depart": "🏁 Pays de départ",
         "destination": "🏁 Pays de destination"
     }
-
-    if "active_analysis" not in st.session_state:
-                st.session_state.active_analysis = None
 
     for key, label in buttons.items():
         if st.button(label):
@@ -159,6 +160,23 @@ def show():
                     st.info(f"👧 Filles : **{fille}%**")
                 except Exception as e:
                     st.error(f"❌ Erreur lors du traitement : {e}")
+    
+    # == TRANSPORTS ==
+    elif st.session_state.active_analysis == "transport":
+        st.markdown("### ✅ Moyen de transport")
+        colnames = df_fmr.columns.tolist()
+        transport_col = st.selectbox("🌍 Colonne : moyen de transport", colnames, key="selected_transport")
+        counting_col = st.selectbox("🔢 Colonne : date de l'enquête", colnames, key="selected_date_enq_count")
+        if st.button("Lancer l'analyse"):    
+            if transport_col and counting_col:
+                try:
+                    grouped = df_fmr.groupby(transport_col)[counting_col].count()
+                    pourcentages = round((grouped / grouped.sum()) * 100, 2)
+                    st.markdown("#### 📊 Les différents moyens de transport")
+                    st.dataframe(pourcentages.sort_values(ascending=False).head(10))
+        
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
                 
     # == DEPART  ==
     elif st.session_state.active_analysis == "depart":
